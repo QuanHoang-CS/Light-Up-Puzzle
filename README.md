@@ -6,7 +6,7 @@
   - Forward checking
 - **Heuristics**:
   - **Heuristic 1 (H1)**: Most Constrained Variable
-      - The heuristic selects the node with the least remaining options as the next move. The idea behind this is that picking such a node will result in earlier backtracking. If multiple nodes have the same minimum number of options, then one of them is selected randomly. The criteria is:
+      - The heuristic selects the node with the least remaining options as the next move. The idea behind this is that picking such a node will result in earlier backtracking. If multiple nodes have the same minimum number of options, then one of them is selected randomly. The criterias are:
         - number of walls surrounding the cell
         - if it is in middle or edge/corner
         - if its neighbor constraints (how many has been lit up?)
