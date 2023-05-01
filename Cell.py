@@ -1,5 +1,6 @@
 from CellState import *
 
+
 class Cell:
     def __init__(self, x_coord, y_coord, value):
         self.x_coord = x_coord

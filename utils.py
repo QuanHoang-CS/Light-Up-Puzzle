@@ -22,45 +22,43 @@ def read_file(filename):
     return puzzle_dict
 
 
+# Modified
 def print_puzzle(puzzle):
     for row in range(len(puzzle)):
         for col in range(len(puzzle[0])):
             if col == len(puzzle[0]) - 1:
-                print(puzzle[row][col])
+                print(puzzle[row][col].get_cell_value())
             else:
-                print(puzzle[row][col], end='')
+                print(puzzle[row][col].get_cell_value(), end='')
 
 
-# Given the current state of the curr_state (the puzzle), with newly placed bulbs,
-# light up all cells in the same row and col that is not obstructed by wall using * symbols
+# Modified
 def light_up_puzzle(curr_state):
     """
-    :param
-    :return:
+    Given the current state of the puzzle, with newly placed bulbs
+    light up all cells in the same row and col that is not obstructed by wall
+    :param curr_state: List[List[Cell]] - the current state of the puzzle
+    :return: NA
     """
-
-    directions = [(-1, 0), (1, 0), (0, 1), (0, -1)]
-
-    for x_direct, y_direct in directions:
-        row_temp, col_temp = row + x_direct, col + y_direct
-        while is_in_bounds(curr_state, row_temp, col_temp) and not curr_state[row_temp][col_temp].is_wall():
-            if curr_state[row_temp][col_temp].is_bulb():
-                return False
-            row_temp, col_temp = row_temp + x_direct, col_temp + y_direct
-
-
     # Iterate through each cell in the current state
     for row in range(len(curr_state)):
         for col in range(len(curr_state[row])):
+
+            # For each cell that contains a bulb
             if curr_state[row][col].is_bulb():
+                # Iterate on the 4 directions of this cell
                 directions = [(-1, 0), (1, 0), (0, 1), (0, -1)]
                 for x_direct, y_direct in directions:
                     row_temp, col_temp = row + x_direct, col + y_direct
+                    # While still in bound and not encounter a wall, keep going
                     while is_in_bounds(curr_state, row_temp, col_temp) and not curr_state[row_temp][col_temp].is_wall():
+                        # If the cell is empty, change its state to "LIGHT"
                         if curr_state[row_temp][col_temp].is_empty():
                             curr_state[row_temp][col_temp].set_cell_value(CellState.LIGHT)
+                        row_temp, col_temp = row_temp + x_direct, col_temp + y_direct   # Keep going
 
 
+# Modified
 def unlit_puzzle(curr_state):
     """
     Changing state of cells that are in "LIGHT" state to "EMPTY" state
@@ -74,57 +72,41 @@ def unlit_puzzle(curr_state):
                 curr_state[row][col].set_cell_value(CellState.EMPTY)
 
 
-# Given the position of a bulb, count the number of cells that bulb can light up
-# and return this number
-def num_cells_light(curr_state, cell):
+# Modified
+def num_cells_lighten(curr_state, row, col):
     """
+    Given the position [row,col] of a bulb, count the number of cells that that bulb can light up
+    Return number of cells the bulb at [row,col] can light up
     :param curr_state: the current state of the puzzle
-    :param cell: [row, col] the coordinate of the given cell
-    :return: Number of cells the bulb at cell can light up
+    :param row: row number of given cell
+    :param col: col number of given cell
+    :return: int
     """
     count = 0
-    row = cell[0]
-    col = cell[1]
-    upper_row = row - 1
-    lower_row = row + 1
-    col_left = col - 1
-    col_right = col + 1
 
-    # Light up the puzzle
-    light_up_puzzle(curr_state)
-
-    # Going up
-    while upper_row >= 0 and curr_state[upper_row][col] in [CellState.EMPTY]:
-        if curr_state[upper_row][col] == CellState.EMPTY:
+    # Iterate on the 4 directions of this cell
+    directions = [(-1, 0), (1, 0), (0, 1), (0, -1)]
+    for x_direct, y_direct in directions:
+        row_temp, col_temp = row + x_direct, col + y_direct
+        # While still in bound and not encounter a wall, keep going
+        while is_in_bounds(curr_state, row_temp, col_temp) and not curr_state[row_temp][col_temp].is_wall():
             count += 1
-        upper_row -= 1
+            row_temp, col_temp = row_temp + x_direct, col_temp + y_direct  # Keep going
 
-    # Going down
-    while lower_row < len(curr_state) and curr_state[lower_row][col] in [CellState.EMPTY]:
-        if curr_state[lower_row][col] == CellState.EMPTY:
-            count += 1
-        lower_row += 1
-
-    # To the left
-    while col_left >= 0 and curr_state[row][col_left] in [CellState.EMPTY]:
-        if curr_state[row][col_left] == CellState.EMPTY:
-            count += 1
-        col_left -= 1
-
-    # To the right
-    while col_right < len(curr_state[0]) and curr_state[row][col_right] in [CellState.EMPTY, CellState.LIGHT]:
-        if curr_state[row][col_right] == CellState.EMPTY:
-            count += 1
-        col_right += 1
-
-    # Unlit the puzzle to return it to the original state
-    unlit_puzzle(curr_state)
     return count
 
 
+# Modified
 def count_adjacent_bulbs(puzzle, row, col):
-    # count adjacent lights if a cell with a number
-    # Only used to check cells with number - WALL
+    """
+    Count the number of adjacent bulbs around a cell at position [row, col]
+    Should only be used to check wall cells
+    :param puzzle: List[List[Cell]] - Current state of the puzzle
+    :param row: row number of the given cell
+    :param col: col number of the given cell
+    :return: int
+    """
+
     count = 0
     rows = len(puzzle)
     cols = len(puzzle)
@@ -141,39 +123,47 @@ def count_adjacent_bulbs(puzzle, row, col):
     return count
 
 
-def num_adjacent_walls(puzzle, cell):
-    # count how many walls surround the given cell [row, col]
+# Modified
+def count_adjacent_walls(puzzle, row, col):
+    """
+    Count how many walls surround the given cell at [row, col]
+    and return this number
+    :param puzzle: List[List[Cell]] - Current state of the puzzle
+    :param row: row number of the given cell
+    :param col: col number of the given cell
+    :return: int
+    """
     num_walls = 0
-    row = cell[0]
-    col = cell[1]
     rows = len(puzzle)
-    cols = len(puzzle)
+    cols = len(puzzle[0])
 
-    if row > 0 and puzzle[row - 1][col].isdigit():  # down
+    if row > 0 and puzzle[row - 1][col].is_wall():  # down
         num_walls += 1
-    if row < rows - 1 and puzzle[row + 1][col].isdigit():  # up
+    if row < rows - 1 and puzzle[row + 1][col].is_wall():  # up
         num_walls += 1
-    if col > 0 and puzzle[row][col - 1].isdigit():  # left
+    if col > 0 and puzzle[row][col - 1].is_wall():  # left
         num_walls += 1
-    if col < cols - 1 and puzzle[row][col + 1].isdigit():  # right
+    if col < cols - 1 and puzzle[row][col + 1].is_wall():  # right
         num_walls += 1
 
     return num_walls
 
 
-def edge_corner_constraints(puzzle, cell):
+# Modified
+def edge_corner_constraints(puzzle, row, col):
     """
-    Check if the given cell (row, col) is in edge/corner
+    Check if the given cell at [row, col] is in edge/corner
         - not an edge/corner = 0 (no constraint)
-        - edge = 1
-        - corner = 2
-    :return: its constraint level
+        - edge = 1 (1 side is constrained)
+        - corner = 2 (2 sides are constrained)
+    :param puzzle: List[List[Cell]] - Current state of the puzzle
+    :param row: row number of the given cell
+    :param col: col number of the given cell
+    :return: int
     """
     constraints = 0
-    row = cell[0]
-    col = cell[1]
     rows = len(puzzle)
-    cols = len(puzzle)
+    cols = len(puzzle[0])
 
     if row == 0 or row == rows - 1 or col == 0 or col == cols - 1:  # edge
         constraints = 1
@@ -184,41 +174,11 @@ def edge_corner_constraints(puzzle, cell):
     return constraints
 
 
-def neighbor_constraints(puzzle, cell):
-    """
-    Check how many neighbors of the given cell (row, col) is lit up out of 4 of them
-    :param puzzle: the current state of the puzzle
-    :param cell: [row, col] - coordinate of the given cell
-    :return: the number of neighbors that are lit up
-    """
-    constraints = 0
-    row = cell[0]
-    col = cell[1]
-    rows = len(puzzle)
-    cols = len(puzzle)
-
-    light_up_puzzle(puzzle)
-
-    if row > 0 and puzzle[row - 1][col] == CellState.LIGHT:  # down
-        constraints += 1
-
-    if row < rows - 1 and puzzle[row + 1][col] == CellState.LIGHT:  # up
-        constraints += 1
-
-    if col > 0 and puzzle[row][col - 1] == CellState.LIGHT:  # left
-        constraints += 1
-
-    if col < cols - 1 and puzzle[row][col + 1] == CellState.LIGHT:  # right
-        constraints += 1
-
-    unlit_puzzle(puzzle)
-    return constraints
-
-
-# Return True if map is lit up entirely, False otherwise
+# Modified
 def is_map_lit_entirely(curr_state):
     """
-    :param curr_state: List[List[str]] - the puzzle
+    Return True if map is lit up entirely, False otherwise
+    :param curr_state: List[List[str]] - the current state of the puzzle
     :return: bool
     """
 
@@ -236,6 +196,7 @@ def is_map_lit_entirely(curr_state):
     return is_lit_up
 
 
+# Modified
 def is_in_bounds(curr_state, row, col):
     """
     Check if a given position [row, col] is inside the current puzzle
@@ -248,6 +209,7 @@ def is_in_bounds(curr_state, row, col):
     return 0 <= row < len(curr_state) and 0 <= col < len(curr_state[0])
 
 
+# Modified
 def is_valid_bulb(curr_state, row, col):
     """
     Given a cell, check to see if this cell can "see" another bulb directly
@@ -269,7 +231,14 @@ def is_valid_bulb(curr_state, row, col):
     return True
 
 
+# Modified
 def is_solved(curr_state):
+    """
+    Check if the current state of the puzzle is a solved state (all requirements are satisfied)
+    Return True if solved, False otherwise
+    :param curr_state: List[List[Cell]] - the current state of the puzzle
+    :return: bool
+    """
     rows = len(curr_state)
     cols = len(curr_state)
 
@@ -292,6 +261,7 @@ def is_solved(curr_state):
     return is_all_light_up
 
 
+# Modified
 def is_state_valid(curr_state):
     """
     Check if for each wall cell, the number of bulbs placed around it is <= the value of the wall
@@ -315,5 +285,4 @@ def is_state_valid(curr_state):
                 return False
 
     return True
-
 

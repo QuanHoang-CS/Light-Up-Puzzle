@@ -16,8 +16,10 @@ def forward_checking(puzzle, empty_cells, wall_cells, deleted_empty_cell, heuris
     """
     :param puzzle: List[List[str]]
     :param domain: List[str] - The domain of posible values each cell in empty cell could take
-    :param empty_cells: List[List[int]] - List of coordinate [x,y] of each empty cell.
-    :param heuristic: String - "most_constrained", "most_constraining", or "hybrid". To decide the heuristic
+    :param empty_cells: List[List[int]] - List of position [x,y] of each empty cell.
+    :param wall_cells: List[List[int]] - List of position [x,y] of each wall cell.
+    :param deleted_empty_cell: stack(List[int]) - Stack of positions of empty cells that got deleted in the process
+    :param heuristic: String - "H1", "H2", or "H3". To decide the heuristic
     :return: The complete solution, or no solution if puzzle is not solvable
     """
 
@@ -92,7 +94,7 @@ def forward_checking(puzzle, empty_cells, wall_cells, deleted_empty_cell, heuris
 
 def domain_change(puzzle, row, col, value):
     """
-    # With the row-col coordinate of a chosen cell and the new value of that cell, if the new value is 'b'
+    # With the row-col position of a chosen cell and the new value of that cell, if the new value is 'b'
     # then modifying all the '_' cell that the chosen cell could "see" by excluding "b" out of their domain
     # If the new value is '_', nothing to do
     :param puzzle: List[List[Cell]] - The puzzle
@@ -166,7 +168,7 @@ def check_wall_feasibility(puzzle, wall_cells):
     # Check the surrounding of each wall
     # Return true if for each wall, the number of cells around it that could accept a bulb is >= wall value
     :param puzzle: List[List[Cell]]
-    :param wall_cells: List[List[int]] - the coordinates of the walls
+    :param wall_cells: List[List[int]] - the positions of the walls
     :return: bool
     """
 
