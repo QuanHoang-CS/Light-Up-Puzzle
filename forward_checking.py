@@ -58,9 +58,7 @@ def forward_checking(puzzle, empty_cells, wall_cells, deleted_empty_cell, heuris
     else:    # We have no empty cell to consider, and the puzzle is still not solved, so backtrack here!
         return 'backtrack'
 
-    # # remove the cell chosen above from the list of temporary empty cells
-    # temp_empty_cells = copy.deepcopy(empty_cells)
-    # temp_empty_cells.remove(next_cell)
+    #print("Next cell is: " + str(next_cell))
 
     deleted_empty_cell.put(next_cell)
     empty_cells.remove(next_cell)
@@ -69,10 +67,12 @@ def forward_checking(puzzle, empty_cells, wall_cells, deleted_empty_cell, heuris
 
     # Get the domain of the cell we chose
     next_cell_domain = puzzle[row][col].get_cell_domain()
+    #print("Next cell domain is: " + str(next_cell_domain))
 
     # Try each value in the domain of the chosen variable
     for i in range(len(next_cell_domain)):
         value = next_cell_domain[i]
+        #print("attemp solving at node" + str(node_count))
 
         # Create a copy of the current puzzle state for variable assignment
         temp_puzzle = copy.deepcopy(puzzle)
@@ -84,67 +84,20 @@ def forward_checking(puzzle, empty_cells, wall_cells, deleted_empty_cell, heuris
         check_no_empty_domain = no_empty_domain(temp_puzzle, empty_cells)
         feasible_for_all_wall = check_wall_feasibility(temp_puzzle, wall_cells)
 
+        # print("In front of if")
+        # print(is_state_valid(temp_puzzle))
+        # print(check_no_empty_domain)
+        # print(feasible_for_all_wall)
+        # print_puzzle(temp_puzzle)
+
         if is_state_valid(temp_puzzle) and check_no_empty_domain and feasible_for_all_wall:
             result = forward_checking(temp_puzzle, empty_cells, wall_cells, deleted_empty_cell, heuristic)
             if result != 'backtrack' and result != 'failure':
                 return result
 
+    empty_cells.append(next_cell)
+    deleted_empty_cell.get()
     return 'failure'
-
-
-def domain_change(puzzle, row, col, value):
-    """
-    # With the row-col position of a chosen cell and the new value of that cell, if the new value is 'b'
-    # then modifying all the '_' cell that the chosen cell could "see" by excluding "b" out of their domain
-    # If the new value is '_', nothing to do
-    :param puzzle: List[List[Cell]] - The puzzle
-    :param row: int - row index of the cell that got assigned variable
-    :param col: int - col index of the cell that got assigned variable
-    :param value: the value of the variable (either'_' or 'b'
-    :return: NA
-    """
-
-    #TODO: remove this after finish
-    '''
-    print('in domain change function, the domain passed in is:')
-    print_domain(domain)
-    '''
-
-    if value == CellState.BULB:
-
-        travel_dist = 1
-
-        # Keep travel if we still in domain map, and the cell domain we are looking at is not wall
-
-        # Up
-        while row - travel_dist >= 0 and not puzzle[row - travel_dist][col].is_wall():
-            cell = puzzle[row - travel_dist][col]
-            cell.remove_bulb_from_domain()
-            travel_dist += 1
-
-        travel_dist = 1
-
-        # Down
-        while row + travel_dist < len(puzzle) and not puzzle[row + travel_dist][col].is_wall():
-            cell = puzzle[row + travel_dist][col]
-            cell.remove_bulb_from_domain()
-            travel_dist += 1
-
-        travel_dist = 1
-
-        # To the left
-        while col - travel_dist >= 0 and not puzzle[row][col - travel_dist].is_wall():
-            cell = puzzle[row][col - travel_dist]
-            cell.remove_bulb_from_domain()
-            travel_dist += 1
-
-        travel_dist = 1
-
-        # To the right
-        while col + travel_dist < len(puzzle[0]) and not puzzle[row][col + travel_dist].is_wall():
-            cell = puzzle[row][col + travel_dist]
-            cell.remove_bulb_from_domain()
-            travel_dist += 1
 
 
 def no_empty_domain(puzzle, empty_cells):
@@ -200,3 +153,165 @@ def check_wall_feasibility(puzzle, wall_cells):
         i += 1
 
     return valid
+
+
+def preprocess_puzzle(puzzle, empty_cells, wall_cells, first_pre_process):
+    """
+    # Pre-processing the given puzzle by placing bulb at sure-place
+    # For each bulb that we place, correspondingly reduce the domain of related empty cells
+    # Return the total number of changes made in the pre-processing
+    :param puzzle: List[List[Cell]] - The puzzle
+    :param empty_cells: List[List[int]] - positions of empty cells
+    :param wall_cells: List[List[int]] - positions of wall cells
+    :param first_pre_process: bool - True if call method for the 1st time, False otherwise
+    :return: int
+    """
+
+    directions = [(-1, 0), (1, 0), (0, 1), (0, -1)]
+    change_count = 0
+
+    for position in wall_cells:
+        row = position[0]
+        col = position[1]
+        wall_value = int(puzzle[row][col].get_cell_value())
+
+        # If seeing a wall of number 0, reduce domain size of all empty walls around it
+        # (i.e. take bulb out of domain values)
+        if wall_value == 0 and first_pre_process:
+
+            for x_direct, y_direct in directions:
+                x_temp, y_temp = row + x_direct, col + y_direct
+                if is_in_bounds(puzzle, x_temp, y_temp):
+                    puzzle[x_temp][y_temp].remove_bulb_from_domain()
+
+                    # Cells that we cannot place bulb on are no longer considered "empty" for puzzle solving purpose
+                    if [x_temp, y_temp] in empty_cells:
+                        empty_cells.remove([x_temp, y_temp])
+
+        # If the number of spots in which bulb can be placed matches wall value
+        # we place bulbs around this wall
+        # and increase number of changes made by 1
+        elif available_spots_match_wall_value(puzzle, row, col, wall_value) and wall_value_not_satisfy(puzzle, row, col):
+            place_bulbs_around_special_wall(puzzle, row, col, empty_cells, wall_value)
+            change_count += 1
+
+    return change_count
+
+
+# call necessary methods/algorithms to solve the puzzle as required.
+def solve_puzzle(puzzle, heuristic):
+    """
+    Given the puzzle and the chosen heuristic, return the solved puzzle if the puzzle is solvable
+    Else, return failure message
+    :param puzzle: List[List[Cell]] - The puzzle
+    :param heuristic: Str - The chosen heuristic, either "H1", "H2", or "H3"
+    :return: The solved puzzle, or the error message
+    """
+
+    empty_cells = get_empty_cells(puzzle)
+
+    wall_cells = get_wall_cells(puzzle)
+    stack_of_empty_cells = LifoQueue(maxsize=len(puzzle)*len(puzzle))
+    changes_count = preprocess_puzzle(puzzle, empty_cells, wall_cells, True)
+
+    while changes_count > 0:
+        changes_count = preprocess_puzzle(puzzle, empty_cells, wall_cells, False)
+
+    if is_state_valid(puzzle):
+        print("puzzle after pre-processing")
+        print_puzzle(puzzle)
+        print("Chosen heuristic: {}.".format(heuristic))
+        return forward_checking(puzzle, empty_cells, wall_cells, stack_of_empty_cells, heuristic)
+    else:
+        return "Failure: Puzzle not valid after pre_processing"
+
+
+def test_main():
+    file_name = "test.txt"
+    heuristic = "H1"
+    puzzle_dict = read_file(file_name)
+    for i in puzzle_dict.keys():
+
+        # node_count = 0
+        puzzle = puzzle_dict[i]
+
+        if i != 0:
+            print()
+
+        print('The puzzle is:')
+        print_puzzle(puzzle)
+
+        starting_time = time.time()
+        solution = solve_puzzle(puzzle, heuristic)
+        ending_time = time.time()
+
+        print()
+
+        if solution == 'Too many nodes. Timeout!':
+            print('Number of nodes processed is too high!! Timeout!\nIt took {} seconds.'.format(
+                ending_time - starting_time))
+
+        elif solution == 'stop':
+            print('Please retry!')
+
+        elif solution == 'failure':
+            print('Fail to solve this puzzle. Seems like it\'s unsolvable!!')
+
+        else:
+            print('*** Done! ***\nThe solution is printed out below:')
+            print_puzzle(solution)
+            print("The puzzle was solved in {} seconds.".format(ending_time - starting_time))
+        print('Visited {} nodes.'.format(node_count))
+
+
+test_main()
+
+# receive input, process input and call necessary methods to solve the puzzle.
+# def main(argv=None):
+#
+#     if argv is None:
+#         argv = sys.argv[1:]
+#
+#         arg_parser = argparse.ArgumentParser(add_help=False)
+#         arg_parser.add_argument('-p', action='store', dest='file_name', type=str)
+#         arg_parser.add_argument('-h', action='store', dest='heuristic', type=str, default='H1')
+#
+#         arguments = arg_parser.parse_args(argv)
+#         file_name = arguments.file_name
+#         heuristic = arguments.heuristic
+#         puzzle_dict = read_file(file_name)
+#
+#         for i in puzzle_dict.keys():
+#
+#             #node_count = 0
+#             puzzle = puzzle_dict[i]
+#
+#             if i != 0:
+#                 print()
+#
+#             print('The puzzle is:')
+#             print_puzzle(puzzle)
+#
+#             starting_time = time.time()
+#             solution = solve_puzzle(puzzle, heuristic)
+#             ending_time = time.time()
+#
+#             print()
+#
+#             if solution == 'Too many nodes. Timeout!':
+#                 print('Number of nodes processed is too high!! Timeout!\nIt took {} seconds.'.format(ending_time - starting_time))
+#
+#             elif solution == 'stop':
+#                 print('Please retry!')
+#
+#             elif solution == 'failure':
+#                 print('Fail to solve this puzzle. Seems like it\'s unsolvable!!')
+#
+#             else:
+#                 print('*** Done! ***\nThe solution is printed out below:')
+#                 print_puzzle(solution)
+#                 print("The puzzle was solved in {} seconds.".format(ending_time - starting_time))
+#             print('Visited {} nodes.'.format(node_count))
+#
+# if __name__ == '__main__':
+#     main()

@@ -1,5 +1,6 @@
 import os
 from CellState import *
+from Cell import *
 
 
 def read_file(filename):
@@ -15,7 +16,7 @@ def read_file(filename):
             for row in range(rows):
                 line = file.readline()
                 for col in range(cols):
-                    cell = line[col]
+                    cell = Cell(row, col, line[col])
                     puzzle_dict[count][row][col] = cell
             count += 1
 
@@ -24,6 +25,11 @@ def read_file(filename):
 
 # Modified
 def print_puzzle(puzzle):
+    """
+    Print the puzzle
+    :param puzzle: List[List[Cell]]
+    :return: N/A
+    """
     for row in range(len(puzzle)):
         for col in range(len(puzzle[0])):
             if col == len(puzzle[0]) - 1:
@@ -50,6 +56,7 @@ def light_up_puzzle(curr_state):
                 directions = [(-1, 0), (1, 0), (0, 1), (0, -1)]
                 for x_direct, y_direct in directions:
                     row_temp, col_temp = row + x_direct, col + y_direct
+
                     # While still in bound and not encounter a wall, keep going
                     while is_in_bounds(curr_state, row_temp, col_temp) and not curr_state[row_temp][col_temp].is_wall():
                         # If the cell is empty, change its state to "LIGHT"
@@ -117,7 +124,7 @@ def count_adjacent_bulbs(puzzle, row, col):
         count += 1
     if col > 0 and puzzle[row][col - 1].is_bulb():  # left
         count += 1
-    if col < cols - 1 and puzzle[row][col + 1].is_bulb:  # right
+    if col < cols - 1 and puzzle[row][col + 1].is_bulb():  # right
         count += 1
 
     return count
@@ -221,6 +228,11 @@ def is_valid_bulb(curr_state, row, col):
 
     directions = [(-1, 0), (1, 0), (0, 1), (0, -1)]
 
+    # Domain value must allow bulb, and the position that places bulb must be in bound
+    if not (is_in_bounds(curr_state, row, col) and curr_state[row][col].domain_contain(CellState.BULB)):
+        return False
+
+    # Now check if this bulb "see" another bulb
     for x_direct, y_direct in directions:
         row_temp, col_temp = row + x_direct, col + y_direct
         while is_in_bounds(curr_state, row_temp, col_temp) and not curr_state[row_temp][col_temp].is_wall():
@@ -265,7 +277,7 @@ def is_solved(curr_state):
 def is_state_valid(curr_state):
     """
     Check if for each wall cell, the number of bulbs placed around it is <= the value of the wall
-    Check if feach bulb we have placed is valid (no 2 bulbs should directly "see" each other)
+    Check if each bulb we have placed is valid (no 2 bulbs should directly "see" each other)
     :param curr_state: The current state of the puzzle
     :return: bool
     """
@@ -278,11 +290,167 @@ def is_state_valid(curr_state):
             # If the wall has more bulbs around it than its value, return False
             if curr_state[row][col].is_wall():
                 if int(curr_state[row][col].get_cell_value()) < count_adjacent_bulbs(curr_state, row, col):
+                    # print("at position: " + str(row) + " " + str(col) + ":" + curr_state[row][col].get_cell_value() + " " + str(count_adjacent_bulbs(curr_state, row, col)))
+                    # print("more bulb than allowed)")
                     return False
 
             # If a bulb we place "see" another bulb (invalid placement), return False
             elif curr_state[row][col].is_bulb() and not is_valid_bulb(curr_state, row, col):
+                #print("2 bulbs see each other")
                 return False
 
     return True
 
+
+def get_empty_cells(puzzle):
+    """
+    Take the puzzle as parameter and return the coordinates of empty cells
+    :param puzzle: List[List[Cell]] - The puzzle
+    :return: List[List[int]], the positions of empty cells in the puzzle
+    """
+
+    empty_cells = []
+
+    for row in range(len(puzzle)):
+        for col in range(len(puzzle[row])):
+            if puzzle[row][col].is_empty():
+                empty_cells.append([row, col])
+
+    return empty_cells
+
+
+def get_wall_cells(puzzle):
+    """
+    Take the puzzle as parameter and return the coordinates of empty cells
+    :param puzzle: List[List[Cell]] - The puzzle
+    :return: List[List[int]], the coordinates of puzzle cells in the puzzle
+    """
+
+    wall_cells = []
+
+    for row in range(len(puzzle)):
+        for col in range(len(puzzle[row])):
+            if puzzle[row][col].is_wall():
+                wall_cells.append([row, col])
+
+    return wall_cells
+
+
+def place_bulbs_around_special_wall(puzzle, row, col, empty_cells, wall_value):
+    """
+    Special walls are walls which we know exactly how we should place bulbs around it
+    (i.e. a wall of value 4 should have 4 bulbs around it, a wall of value 3 and is on an edge should have 3 bulbs around it)
+    :param puzzle: List[List[Cell]] - The puzzle
+    :param row: int - row index of the cell
+    :param col: int - col index of the cell
+    :param empty_cells: List[List[int]] - positions of empty cells
+    :param wall_value: List[List[int]] - positions of wall cells
+    :return:
+    """
+
+    directions = [(-1, 0), (1, 0), (0, 1), (0, -1)]
+    count_bulb_placed = 0
+
+    for x_direct, y_direct in directions:
+        x_temp, y_temp = row + x_direct, col + y_direct
+        if is_valid_bulb(puzzle, x_temp, y_temp):
+            puzzle[x_temp][y_temp].set_cell_value(CellState.BULB)
+            domain_change(puzzle, x_temp, y_temp, CellState.BULB)
+            count_bulb_placed += 1
+
+            # Cells that we already placed bulbs on should no longer be in list of empty cell
+            if [x_temp, y_temp] in empty_cells:
+                empty_cells.remove([x_temp, y_temp])
+    return count_bulb_placed == wall_value
+
+
+def available_spots_match_wall_value(puzzle, row, col, wall_value):
+    """
+    Return true if the number of available spots that we can place bulbs around the position[row, col]
+    equals wall value
+    Return False otherwise
+    :param puzzle: List[List[Cell]] - The puzzle
+    :param row: int - row index of the cell
+    :param col: int - col index of the cell
+    :param wall_value: the value of the wall at [row,col] position
+    :return: bool
+    """
+    count = 0
+
+    directions = [(-1, 0), (1, 0), (0, 1), (0, -1)]
+
+    for x_direct, y_direct in directions:
+        x_temp, y_temp = row + x_direct, col + y_direct
+        if is_in_bounds(puzzle, x_temp, y_temp) and puzzle[x_temp][y_temp].domain_contain(CellState.BULB):
+            count += 1
+
+    return count == wall_value
+
+
+def domain_change(puzzle, row, col, value):
+    """
+    # With the row-col position of a chosen cell and the new value of that cell, if the new value is Bulb
+    # then modifying all the Empty cells that the chosen cell could "see" by excluding Bulb out of their domain
+    # If the new value is 'Empty', nothing to do
+    :param puzzle: List[List[Cell]] - The puzzle
+    :param row: int - row index of the cell that got assigned variable
+    :param col: int - col index of the cell that got assigned variable
+    :param value: the value of the variable (either Bulb or Empty)
+    :return: NA
+    """
+
+    #TODO: remove this after finish
+    '''
+    print('in domain change function, the domain passed in is:')
+    print_domain(domain)
+    '''
+
+    if value == CellState.BULB:
+
+        travel_dist = 1
+
+        # Keep travel if we still in domain map, and the cell domain we are looking at is not wall
+
+        # Up
+        while row - travel_dist >= 0 and not puzzle[row - travel_dist][col].is_wall():
+            cell = puzzle[row - travel_dist][col]
+            cell.remove_bulb_from_domain()
+            travel_dist += 1
+
+        travel_dist = 1
+
+        # Down
+        while row + travel_dist < len(puzzle) and not puzzle[row + travel_dist][col].is_wall():
+            cell = puzzle[row + travel_dist][col]
+            cell.remove_bulb_from_domain()
+            travel_dist += 1
+
+        travel_dist = 1
+
+        # To the left
+        while col - travel_dist >= 0 and not puzzle[row][col - travel_dist].is_wall():
+            cell = puzzle[row][col - travel_dist]
+            cell.remove_bulb_from_domain()
+            travel_dist += 1
+
+        travel_dist = 1
+
+        # To the right
+        while col + travel_dist < len(puzzle[0]) and not puzzle[row][col + travel_dist].is_wall():
+            cell = puzzle[row][col + travel_dist]
+            cell.remove_bulb_from_domain()
+            travel_dist += 1
+
+
+def wall_value_not_satisfy(puzzle, row, col):
+    """
+    Return true if the current wall has enough bulbs around it
+    Return false otherwise
+    :param puzzle: List[List[Cell]] - The puzzle
+    :param row: int - row index of the given wall
+    :param col: int - col index of the given wall
+    :return: bool
+    """
+    wall_value = int(puzzle[row][col].get_cell_value())
+
+    return wall_value != count_adjacent_bulbs(puzzle, row, col)

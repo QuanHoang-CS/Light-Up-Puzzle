@@ -19,7 +19,7 @@ class Cell:
         return self.value
 
     def is_wall(self):
-        return self.state.isdigit()
+        return self.value.isdigit()
 
     def is_bulb(self):
         return self.value == CellState.BULB
