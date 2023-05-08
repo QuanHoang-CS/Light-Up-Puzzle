@@ -16,6 +16,8 @@
         - Counting the num cells that (potential) bulb can light up - choose the maximum
   - **Heuristic 3 (H3)**: Hybrid
       - This heuristic will combine both H1 and H2.
+        - Apply H1 to get a list of candidate(s)
+        - Apply H2 on the list of candidate(s) to get the final list of candidate(s)
 
 
 
